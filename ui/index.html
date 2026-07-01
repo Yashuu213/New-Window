@@ -187,6 +187,106 @@
             </div>
         </div>
 
+        <!-- CUSTOM CONTEXT MENU -->
+        <div id="custom-context-menu" class="context-menu">
+            <div class="cm-item" id="cm-view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                <span>View</span>
+                <span class="cm-shortcut"></span>
+            </div>
+            <div class="cm-item" id="cm-sort">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="15" y1="18" x2="9" y2="18"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="18" y1="12" x2="6" y2="12"></line></svg>
+                <span>Sort by</span>
+                <span class="cm-shortcut"></span>
+            </div>
+            <div class="cm-item" id="cm-refresh">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.92-10.44l5.36 5.36"></path></svg>
+                <span>Refresh</span>
+                <span class="cm-shortcut">F5</span>
+            </div>
+            <div class="cm-divider"></div>
+            <div class="cm-item" id="cm-new">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                <span>New Folder</span>
+                <span class="cm-shortcut">Ctrl+Shift+N</span>
+            </div>
+            <div class="cm-divider"></div>
+            <div class="cm-item" id="cm-settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                <span>Display settings</span>
+                <span class="cm-shortcut"></span>
+            </div>
+            <div class="cm-item" id="cm-wallpaper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <span>Personalize</span>
+                <span class="cm-shortcut"></span>
+            </div>
+        </div>
+
+        <!-- SPOTLIGHT SEARCH -->
+        <div id="spotlight-overlay" class="spotlight-overlay">
+            <div class="spotlight-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                <input type="text" id="spotlight-input" placeholder="Spotlight Search..." autocomplete="off">
+            </div>
+            <div id="spotlight-results" class="spotlight-results"></div>
+        </div>
+
+        <!-- APP DRAWER (START MENU) -->
+        <div id="app-drawer" class="app-drawer-overlay">
+            <div class="app-drawer-content">
+                <div class="app-drawer-header">All Apps</div>
+                <div class="app-drawer-grid" id="app-drawer-grid">
+                    <!-- Apps injected here -->
+                </div>
+                
+                <!-- APP DRAWER FOOTER (POWER MENU) -->
+                <div class="app-drawer-footer">
+                    <div class="user-profile">
+                        <div class="avatar">S</div>
+                        <span>System Admin</span>
+                    </div>
+                    <div class="power-btn" id="btn-power" title="Power Options">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                    </div>
+                    
+                    <!-- POWER MENU POPOVER -->
+                    <div id="power-menu" class="power-menu-popover">
+                        <div class="pm-item" id="pm-sleep">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                            Sleep
+                        </div>
+                        <div class="pm-item" id="pm-restart">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                            Restart
+                        </div>
+                        <div class="pm-item" id="pm-shutdown">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path><line x1="12" y1="2" x2="12" y2="12"></line></svg>
+                            Shut down
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- SETTINGS PANEL -->
+        <div id="settings-overlay" class="spotlight-overlay">
+            <div class="settings-container">
+                <div class="settings-header">
+                    <h2>System Settings</h2>
+                    <span id="close-settings" style="cursor:pointer; font-size:1.5rem; color: #fff;">&times;</span>
+                </div>
+                <div class="settings-body">
+                    <h3>Accent Color</h3>
+                    <div class="color-options">
+                        <div class="color-swatch active" data-color="#8b5cf6" data-glow="rgba(139, 92, 246, 0.4)" style="background: #8b5cf6;" title="Cyber Purple (Default)"></div>
+                        <div class="color-swatch" data-color="#00ffcc" data-glow="rgba(0, 255, 204, 0.4)" style="background: #00ffcc;" title="Neon Cyan"></div>
+                        <div class="color-swatch" data-color="#ff0055" data-glow="rgba(255, 0, 85, 0.4)" style="background: #ff0055;" title="Neon Pink"></div>
+                        <div class="color-swatch" data-color="#00a1f1" data-glow="rgba(0, 161, 241, 0.4)" style="background: #00a1f1;" title="Windows Blue"></div>
+                        <div class="color-swatch" data-color="#fbbc05" data-glow="rgba(251, 188, 5, 0.4)" style="background: #fbbc05;" title="Sun Yellow"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- LEFT SIDEBAR FOR DESKTOP FILES -->
@@ -205,33 +305,85 @@
     <!-- MAC-STYLE FLOATING DOCK (RIGHT SIDEBAR) -->
     <div class="mac-dock-container">
         <div class="mac-dock glass-panel" id="dynamic-dock">
-            <div style="color: white; padding: 0 10px; font-size: 0.9rem;" id="dock-loading">
-                <svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-dashoffset="0"></circle></svg>
-                Loading System Apps...
-            </div>
-            <!-- Dynamic Apps will be injected here -->
             <div class="dock-divider" id="dock-divider" style="display: none;"></div>
         </div>
     </div>
-
     <!-- NEW TRANSPARENT BOTTOM DOCK (TASKBAR STYLE) -->
     <div class="bottom-dock-container">
         <div class="bottom-dock" id="bottom-dock">
             <!-- Windows Start Button -->
-            <div class="bottom-dock-item win-btn" title="Start">
+            <div class="bottom-dock-item win-btn" id="start-btn" title="Start">
                 <svg viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg"><path d="M0 12.402l35.687-4.86.016 34.423-35.67.206L0 12.402zm39.79-5.467L87.973 0v41.528L39.79 41.73V6.935zm-39.756 39.54l35.655.19-.016 35.155-35.638-4.904V46.476zm39.756.242l48.183.25V88L39.79 81.332V46.718z" fill="#00a1f1"/></svg>
             </div>
             
-            <!-- Search Bar -->
-            <div class="search-bar">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" placeholder="Search">
+            <!-- Search Bar Removed per user request -->
+            
+            <div class="bottom-divider"></div>
+            
+            <!-- Multi-Desktop (Task View) -->
+            <div class="bottom-dock-item" id="task-view-btn" title="Task View" style="color: white;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                    <rect x="3" y="3" width="12" height="12" rx="1"></rect>
+                    <path d="M11 21h10a1 1 0 0 0 1-1V10"></path>
+                </svg>
             </div>
             
             <div class="bottom-divider"></div>
             
             <!-- Dynamic Apps will be injected here (max 6) -->
             <div id="bottom-apps" style="display: flex; gap: 10px; align-items: center;"></div>
+
+            <div class="bottom-divider"></div>
+            
+            <!-- Notification Bell -->
+            <div class="bottom-dock-item" id="notif-btn" title="Notifications" style="color: white; position: relative;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <!-- Red dot indicator -->
+                <div id="notif-dot" style="position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; background: #ff4757; border-radius: 50%; box-shadow: 0 0 5px #ff4757;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOTIFICATION CENTER -->
+    <div id="notification-center" class="notification-center">
+        <div class="notif-header">
+            <h3>Notifications</h3>
+            <span class="clear-all" id="notif-clear">Clear All</span>
+        </div>
+        <div class="notif-list" id="notif-list">
+            <!-- WhatsApp Notification -->
+            <div class="notif-card">
+                <div class="notif-icon" style="background: #25D366;">
+                    <svg viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+                </div>
+                <div class="notif-content">
+                    <div class="notif-title">WhatsApp <span class="notif-time">Just now</span></div>
+                    <div class="notif-msg">Mom: Dinner is ready! Come downstairs.</div>
+                </div>
+            </div>
+            <!-- Telegram Notification -->
+            <div class="notif-card">
+                <div class="notif-icon" style="background: #0088cc;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </div>
+                <div class="notif-content">
+                    <div class="notif-title">Telegram <span class="notif-time">5m ago</span></div>
+                    <div class="notif-msg">Dev Group: Server deployment successful!</div>
+                </div>
+            </div>
+            <!-- Chrome Notification -->
+            <div class="notif-card">
+                <div class="notif-icon" style="background: #fbbc05;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="21.17" y1="8" x2="12" y2="8"></line><line x1="3.95" y1="6.06" x2="8.54" y2="14"></line><line x1="10.88" y1="21.94" x2="15.46" y2="14"></line></svg>
+                </div>
+                <div class="notif-content">
+                    <div class="notif-title">Google Chrome <span class="notif-time">12m ago</span></div>
+                    <div class="notif-msg">Download Complete: NexusOS_Update.zip</div>
+                </div>
+            </div>
         </div>
     </div>
 

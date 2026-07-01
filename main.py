@@ -17,39 +17,82 @@ import keyboard
 import time
 import threading
 
-def get_exe_icon_base64(exe_path):
-    try:
-        large, small = win32gui.ExtractIconEx(exe_path, 0)
-        use_icon = large[0] if large else small[0] if small else None
-        if not use_icon: return None
-            
-        hdc = win32ui.CreateDCFromHandle(win32gui.GetDC(0))
-        hbmp = win32ui.CreateBitmap()
-        # Create a large 256x256 canvas to ensure we don't crop high-res icons
-        hbmp.CreateCompatibleBitmap(hdc, 256, 256)
-        hdc = hdc.CreateCompatibleDC()
-        hdc.SelectObject(hbmp)
-        
-        # Draw the icon normally on the large canvas
-        hdc.DrawIcon((0, 0), use_icon)
-        
-        bmpinfo = hbmp.GetInfo()
-        bmpstr = hbmp.GetBitmapBits(True)
-        img = Image.frombuffer('RGBA', (256, 256), bmpstr, 'raw', 'BGRA', 0, 1)
-        
-        # Auto-crop the empty transparent space around the icon
-        bbox = img.getbbox()
-        if bbox:
-            img = img.crop(bbox)
-            
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-        win32gui.DestroyIcon(use_icon)
-        return f"data:image/png;base64,{img_str}"
-    except Exception as e:
-        print(f"Icon error for {exe_path}: {e}")
+def get_icon_base64_robust(shortcut):
+    icon_location = shortcut.IconLocation
+    target_path = shortcut.TargetPath
+    
+    path, index = None, 0
+    if icon_location and ',' in icon_location:
+        parts = icon_location.split(',')
+        path_str = ",".join(parts[:-1]).strip()
+        index_str = parts[-1].strip()
+        path_str = os.path.expandvars(path_str)
+        if os.path.exists(path_str):
+            path = path_str
+            try:
+                index = int(index_str)
+            except ValueError:
+                index = 0
+                
+    if not path and target_path:
+        target_path = os.path.expandvars(target_path)
+        if os.path.exists(target_path):
+            path = target_path
+            index = 0
+
+    if not path:
         return None
+
+    try:
+        lower_path = path.lower()
+        if lower_path.endswith('.ico'):
+            img = Image.open(path)
+            img = img.convert('RGBA')
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+            return f"data:image/png;base64,{img_str}"
+            
+        elif lower_path.endswith(('.exe', '.dll', '.lnk')):
+            use_icon = None
+            ret = win32gui.ExtractIconEx(path, index)
+            if isinstance(ret, tuple) and len(ret) == 2:
+                large, small = ret
+                use_icon = large[0] if large else small[0] if small else None
+            
+            if not use_icon and index != 0:
+                ret = win32gui.ExtractIconEx(path, 0)
+                if isinstance(ret, tuple) and len(ret) == 2:
+                    large, small = ret
+                    use_icon = large[0] if large else small[0] if small else None
+                
+            if not use_icon:
+                return None
+                
+            hdc = win32ui.CreateDCFromHandle(win32gui.GetDC(0))
+            hbmp = win32ui.CreateBitmap()
+            hbmp.CreateCompatibleBitmap(hdc, 256, 256)
+            hdc = hdc.CreateCompatibleDC()
+            hdc.SelectObject(hbmp)
+            hdc.DrawIcon((0, 0), use_icon)
+            
+            bmpstr = hbmp.GetBitmapBits(True)
+            img = Image.frombuffer('RGBA', (256, 256), bmpstr, 'raw', 'BGRA', 0, 1)
+            
+            bbox = img.getbbox()
+            if bbox:
+                img = img.crop(bbox)
+                
+            buffered = io.BytesIO()
+            img.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode()
+            win32gui.DestroyIcon(use_icon)
+            return f"data:image/png;base64,{img_str}"
+            
+    except Exception as e:
+        print(f"Robust icon extraction error for {path}: {e}")
+        
+    return None
 
 def get_apps_json():
     shell = win32com.client.Dispatch("WScript.Shell")
@@ -58,6 +101,7 @@ def get_apps_json():
         os.path.expanduser(r"~\AppData\Roaming\Microsoft\Windows\Start Menu\Programs")
     ]
     apps = []
+    seen_names = set()
     for path in paths:
         if not os.path.exists(path): continue
         for root, dirs, files in os.walk(path):
@@ -66,13 +110,16 @@ def get_apps_json():
                     full_path = os.path.join(root, file)
                     try:
                         shortcut = shell.CreateShortCut(full_path)
-                        target = shortcut.Targetpath
-                        if target.endswith('.exe'):
-                            name = file.replace('.lnk', '')
-                            icon_b64 = get_exe_icon_base64(target)
-                            if icon_b64:
-                                apps.append({'name': name, 'path': target, 'icon': icon_b64})
-                    except Exception:
+                        name = file.replace('.lnk', '')
+                        if name in seen_names:
+                            continue
+                        seen_names.add(name)
+                        
+                        extracted = get_icon_base64_robust(shortcut)
+                        if extracted:
+                            apps.append({'name': name, 'path': full_path, 'icon': extracted})
+                    except Exception as e:
+                        print(f"Error processing shortcut {file}: {e}")
                         pass
     apps = sorted(apps, key=lambda x: x['name'])
     return json.dumps(apps)
@@ -148,10 +195,45 @@ class CustomWebPage(QWebEnginePage):
                 win32gui.SetForegroundWindow(hwnd)
             except Exception as e:
                 print(f"Failed to focus {hwnd}: {e}")
+        elif msg == "SHUTDOWN":
+            print("Initiating system shutdown...")
+            os.system("shutdown /s /t 0")
+        elif msg == "RESTART":
+            print("Initiating system restart...")
+            os.system("shutdown /r /t 0")
+        elif msg == "SLEEP":
+            print("Initiating system sleep...")
+            os.system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0")
+        elif msg.startswith("SET_VOLUME:"):
+            try:
+                val = int(msg.split(":")[1])
+                print(f"Volume request: {val}%")
+                from ctypes import cast, POINTER
+                from comtypes import CLSCTX_ALL
+                from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+                devices = AudioUtilities.GetSpeakers()
+                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume.SetMasterVolumeLevelScalar(val / 100.0, None)
+            except Exception as e:
+                print(f"Failed to set volume: {e}")
+        elif msg.startswith("SET_BRIGHTNESS:"):
+            try:
+                val = int(msg.split(":")[1])
+                print(f"Brightness request: {val}%")
+                import wmi
+                c = wmi.WMI(namespace='wmi')
+                methods = c.WmiMonitorBrightnessMethods()
+                if methods:
+                    methods[0].WmiSetBrightness(val, 0)
+            except Exception as e:
+                print(f"Failed to set brightness: {e}")
+        elif msg.startswith("SET_ACCENT:"):
+            print(f"Accent Color changed: {msg}")
+        elif msg.startswith("TOGGLE_OPTION:"):
+            print(f"Toggle Option updated: {msg}")
         else:
             print(f"JS: {msg}")
-
-from PyQt6.QtCore import QThread, pyqtSignal
 
 class ScannerThread(QThread):
     scan_finished = pyqtSignal(str, str, str)
@@ -180,17 +262,22 @@ class WindowPoller(QThread):
                 print("Window poller error:", e)
             time.sleep(1)
 
-class DesktopSimulator(QMainWindow):
+class MainWindow(QMainWindow):
+    spotlight_signal = pyqtSignal()
+    
     def __init__(self):
         super().__init__()
+        self.last_spotlight_time = 0
         self.setWindowTitle("Nexus OS Desktop")
-        self.setGeometry(100, 100, 1280, 720)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.showFullScreen()
         
         self.browser = QWebEngineView()
         self.page = CustomWebPage(self.browser)
         self.browser.setPage(self.page)
         
         self.browser.loadFinished.connect(self.on_load_finished)
+        self.spotlight_signal.connect(self.toggle_spotlight_safe)
         
         ui_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'index.html')
         self.browser.setUrl(QUrl.fromLocalFile(ui_path))
@@ -203,8 +290,22 @@ class DesktopSimulator(QMainWindow):
         try:
             for i in range(1, 10):
                 keyboard.add_hotkey(f'alt+{i}', self.focus_window_by_index, args=[i-1])
+            keyboard.add_hotkey('ctrl+space', self.emit_spotlight_signal)
         except Exception as e:
             print("Hotkey setup failed:", e)
+
+    def emit_spotlight_signal(self):
+        current_time = time.time()
+        if current_time - self.last_spotlight_time > 0.3:
+            self.last_spotlight_time = current_time
+            self.spotlight_signal.emit()
+
+    def toggle_spotlight_safe(self):
+        print("Toggling spotlight globally via safe signal...")
+        self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized | Qt.WindowState.WindowActive)
+        self.activateWindow()
+        self.raise_()
+        self.browser.page().runJavaScript("if(window.toggleSpotlight) window.toggleSpotlight();")
 
     def focus_window_by_index(self, index):
         if index < len(self.open_hwnds):
@@ -236,6 +337,7 @@ class DesktopSimulator(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = DesktopSimulator()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec())
+
