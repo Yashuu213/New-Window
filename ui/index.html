@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus OS Desktop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    
+    <!-- WALLPAPER CROSSFADE LAYERS -->
+    <div id="bg-layer-1" class="wallpaper-layer"></div>
+    <div id="bg-layer-2" class="wallpaper-layer" style="opacity: 0;"></div>
+
+    <!-- DESKTOP AREA -->
+    <main class="desktop">
+        <!-- We can add some desktop icons here -->
+        <div class="icon-grid">
+            <div class="app-icon">
+                <div class="icon-box" style="background: linear-gradient(135deg, #10b981, #047857);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                </div>
+                <span>Terminal</span>
+            </div>
+            
+            <div class="app-icon">
+                <div class="icon-box" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                </div>
+                <span>Browser</span>
+            </div>
+
+            <div class="app-icon">
+                <div class="icon-box" style="background: linear-gradient(135deg, #8b5cf6, #6d28d9);">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <span>Files</span>
+            </div>
+        </div>
+    </main>
+
+    <!-- MAC-STYLE FLOATING DOCK (RIGHT SIDEBAR) -->
+    <div class="mac-dock-container">
+        <div class="mac-dock glass-panel" id="dynamic-dock">
+            <div style="color: white; padding: 0 10px; font-size: 0.9rem;" id="dock-loading">
+                <svg class="spinner" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; vertical-align: middle; margin-right: 8px;"><circle cx="12" cy="12" r="10" stroke-dasharray="31.4 31.4" stroke-dashoffset="0"></circle></svg>
+                Loading System Apps...
+            </div>
+            <!-- Dynamic Apps will be injected here -->
+            <div class="dock-divider" id="dock-divider" style="display: none;"></div>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        .dock-item img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            pointer-events: none;
+        }
+    </style>
+
+    <script src="script.js"></script>
+</body>
+</html>
