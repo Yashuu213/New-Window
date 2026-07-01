@@ -12,7 +12,10 @@ from PIL import Image
 from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtWebEngineCore import QWebEnginePage
-from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtCore import QUrl, Qt, QThread, pyqtSignal
+import keyboard
+import time
+import threading
 
 def get_exe_icon_base64(exe_path):
     try:
@@ -84,6 +87,51 @@ def get_wallpapers_json():
                 wallpapers.append(f"images/{file}")
     return json.dumps(wallpapers)
 
+def get_desktop_files_json():
+    import win32com.client
+    shell = win32com.client.Dispatch("WScript.Shell")
+    paths_to_check = [
+        shell.SpecialFolders("Desktop"),
+        os.path.expanduser(r"~\Desktop"),
+        os.path.expanduser(r"~\OneDrive\Desktop")
+    ]
+    
+    files_list = []
+    seen_files = set()
+    
+    for desktop_path in paths_to_check:
+        if not desktop_path or not os.path.exists(desktop_path):
+            continue
+            
+        for file in os.listdir(desktop_path):
+            if file.lower() == 'desktop.ini': continue
+            if file in seen_files: continue
+            
+            seen_files.add(file)
+            full_path = os.path.join(desktop_path, file)
+            is_dir = os.path.isdir(full_path)
+            files_list.append({
+                'name': file,
+                'path': full_path.replace("\\", "\\\\"),
+                'is_dir': is_dir
+            })
+            
+    files_list = sorted(files_list, key=lambda x: (not x['is_dir'], x['name'].lower()))
+    return json.dumps(files_list)
+
+def get_open_windows():
+    def callback(hwnd, windows):
+        if win32gui.IsWindowVisible(hwnd) and win32gui.GetWindowTextLength(hwnd) > 0:
+            title = win32gui.GetWindowText(hwnd)
+            class_name = win32gui.GetClassName(hwnd)
+            if class_name not in ["Progman", "Windows.UI.Core.CoreWindow", "ApplicationFrameWindow", "Shell_TrayWnd"] and "Nexus OS Desktop" not in title:
+                if win32gui.GetWindow(hwnd, win32con.GW_OWNER) == 0:
+                    windows.append({'hwnd': hwnd, 'title': title})
+        return True
+    windows = []
+    win32gui.EnumWindows(callback, windows)
+    return windows
+
 class CustomWebPage(QWebEnginePage):
     def javaScriptConsoleMessage(self, level, msg, line, sourceID):
         if msg.startswith("LAUNCH:"):
@@ -93,13 +141,20 @@ class CustomWebPage(QWebEnginePage):
                 print(f"Launched: {app_path}")
             except Exception as e:
                 print(f"Failed to launch {app_path}: {e}")
+        elif msg.startswith("FOCUS:"):
+            hwnd = int(msg.replace("FOCUS:", ""))
+            try:
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+            except Exception as e:
+                print(f"Failed to focus {hwnd}: {e}")
         else:
             print(f"JS: {msg}")
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
 class ScannerThread(QThread):
-    scan_finished = pyqtSignal(str, str)
+    scan_finished = pyqtSignal(str, str, str)
     
     def run(self):
         try:
@@ -107,10 +162,23 @@ class ScannerThread(QThread):
             wallpapers = get_wallpapers_json()
             print("Scanning apps... (This might take a few seconds)", flush=True)
             apps = get_apps_json()
+            print("Scanning desktop files...", flush=True)
+            desktop = get_desktop_files_json()
             print("Scan complete! Sending to UI.", flush=True)
-            self.scan_finished.emit(apps, wallpapers)
+            self.scan_finished.emit(apps, wallpapers, desktop)
         except Exception as e:
             print(f"Error in scanner thread: {e}", flush=True)
+
+class WindowPoller(QThread):
+    windows_updated = pyqtSignal(str)
+    def run(self):
+        while True:
+            try:
+                wins = get_open_windows()
+                self.windows_updated.emit(json.dumps(wins))
+            except Exception as e:
+                print("Window poller error:", e)
+            time.sleep(1)
 
 class DesktopSimulator(QMainWindow):
     def __init__(self):
@@ -127,6 +195,25 @@ class DesktopSimulator(QMainWindow):
         ui_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'index.html')
         self.browser.setUrl(QUrl.fromLocalFile(ui_path))
         self.setCentralWidget(self.browser)
+        
+        self.open_hwnds = []
+        self.setup_hotkeys()
+
+    def setup_hotkeys(self):
+        try:
+            for i in range(1, 10):
+                keyboard.add_hotkey(f'alt+{i}', self.focus_window_by_index, args=[i-1])
+        except Exception as e:
+            print("Hotkey setup failed:", e)
+
+    def focus_window_by_index(self, index):
+        if index < len(self.open_hwnds):
+            hwnd = self.open_hwnds[index]['hwnd']
+            try:
+                win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                win32gui.SetForegroundWindow(hwnd)
+            except Exception:
+                pass
 
     def on_load_finished(self, ok):
         if ok:
@@ -134,10 +221,18 @@ class DesktopSimulator(QMainWindow):
             self.scanner = ScannerThread()
             self.scanner.scan_finished.connect(self.inject_data)
             self.scanner.start()
+            
+            self.window_poller = WindowPoller()
+            self.window_poller.windows_updated.connect(self.inject_windows)
+            self.window_poller.start()
 
-    def inject_data(self, apps, wallpapers):
+    def inject_data(self, apps, wallpapers, desktop):
         print("Injecting data into JavaScript...", flush=True)
-        self.page.runJavaScript(f"window.renderApps({apps}); window.renderWallpapers({wallpapers});")
+        self.page.runJavaScript(f"window.renderApps({apps}); window.renderWallpapers({wallpapers}); window.renderDesktopFiles({desktop});")
+
+    def inject_windows(self, json_str):
+        self.open_hwnds = json.loads(json_str)
+        self.page.runJavaScript(f"if (window.renderOpenWindows) window.renderOpenWindows({json_str});")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

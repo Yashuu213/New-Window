@@ -69,32 +69,157 @@ window.renderApps = function(apps) {
     divider.style.display = 'block';
 };
 
-window.renderWallpapers = function(wallpapers) {
-    if (wallpapers.length > 0) {
-        let currentIndex = 0;
-        const layer1 = document.getElementById('bg-layer-1');
-        const layer2 = document.getElementById('bg-layer-2');
-        let activeLayer = 1;
+    window.renderWallpapers = function(wallpapers) {
+        if (wallpapers.length > 0) {
+            let currentIndex = 0;
+            const layer1 = document.getElementById('bg-layer-1');
+            const layer2 = document.getElementById('bg-layer-2');
+            let activeLayer = 1;
+            
+            layer1.style.backgroundImage = `url('${wallpapers[0]}')`;
+            
+            if (wallpapers.length > 1) {
+                setInterval(() => {
+                    currentIndex = (currentIndex + 1) % wallpapers.length;
+                    const nextImg = `url('${wallpapers[currentIndex]}')`;
+                    
+                    if (activeLayer === 1) {
+                        layer2.style.backgroundImage = nextImg;
+                        layer2.style.opacity = 1;
+                        layer1.style.opacity = 0;
+                        activeLayer = 2;
+                    } else {
+                        layer1.style.backgroundImage = nextImg;
+                        layer1.style.opacity = 1;
+                        layer2.style.opacity = 0;
+                        activeLayer = 1;
+                    }
+                }, 15000);
+            }
+        }
+    };
+
+    window.renderOpenWindows = function(windows) {
+        const container = document.getElementById('open-windows-tabs');
+        if (!container) return;
         
-        layer1.style.backgroundImage = `url('${wallpapers[0]}')`;
+        container.innerHTML = '';
+        windows.forEach((win, index) => {
+            const tab = document.createElement('div');
+            tab.className = 'window-tab';
+            tab.textContent = (index + 1).toString();
+            tab.title = win.title; // Show app name on hover
+            
+            tab.addEventListener('click', () => {
+                console.log("FOCUS:" + win.hwnd);
+            });
+            
+            container.appendChild(tab);
+        });
+    };
+
+    window.renderDesktopFiles = function(files) {
+        const loading = document.getElementById('files-loading');
+        if (loading) loading.remove();
         
-        if (wallpapers.length > 1) {
-            setInterval(() => {
-                currentIndex = (currentIndex + 1) % wallpapers.length;
-                const nextImg = `url('${wallpapers[currentIndex]}')`;
-                
-                if (activeLayer === 1) {
-                    layer2.style.backgroundImage = nextImg;
-                    layer2.style.opacity = 1;
-                    layer1.style.opacity = 0;
-                    activeLayer = 2;
-                } else {
-                    layer1.style.backgroundImage = nextImg;
-                    layer1.style.opacity = 1;
-                    layer2.style.opacity = 0;
-                    activeLayer = 1;
-                }
-            }, 15000);
+        const grid = document.getElementById('desktop-files-grid');
+        
+        files.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.title = file.name;
+            item.style.animation = `slideInUp 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) ${index * 0.05}s forwards`;
+            item.style.opacity = '0';
+            
+            let iconSvg = '';
+            if (file.is_dir) {
+                iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+            } else {
+                iconSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+            }
+            
+            item.innerHTML = `
+                ${iconSvg}
+                <span>${file.name}</span>
+            `;
+            
+            item.addEventListener('click', () => {
+                console.log("LAUNCH:" + file.path);
+            });
+            
+            
+            grid.appendChild(item);
+        });
+    };
+
+    // --- CLOCK WIDGET LOGIC ---
+    function updateClock() {
+        const now = new Date();
+        let hours = now.getHours();
+        let minutes = now.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        
+        hours = hours % 12;
+        hours = hours ? hours : 12; // the hour '0' should be '12'
+        minutes = minutes < 10 ? '0' + minutes : minutes;
+        
+        const timeElement = document.getElementById('clock-time');
+        if (timeElement) {
+            timeElement.textContent = `${hours}:${minutes} ${ampm}`;
+        }
+        
+        const options = { weekday: 'short', month: 'short', day: 'numeric' };
+        const dateElement = document.getElementById('clock-date');
+        if (dateElement) {
+            dateElement.textContent = now.toLocaleDateString('en-US', options);
         }
     }
-};
+    
+    // Update immediately and then every second
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // --- INDIVIDUAL TRAY POPOVERS ---
+    const trayButtons = ['wifi', 'hotspot', 'vol', 'bright', 'more'];
+    
+    trayButtons.forEach(id => {
+        const btn = document.getElementById(`btn-${id}`);
+        const pop = document.getElementById(`pop-${id}`);
+        
+        if (btn && pop) {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                
+                // Close all other popovers
+                document.querySelectorAll('.tray-popover.show').forEach(p => {
+                    if (p !== pop) p.classList.remove('show');
+                });
+                
+                // Toggle clicked popover
+                pop.classList.toggle('show');
+            });
+        }
+    });
+
+    // --- TOGGLE DESKTOP FILES ---
+    const btnToggleFiles = document.getElementById('btn-toggle-files');
+    const leftDockContainer = document.querySelector('.left-dock-container');
+    if (btnToggleFiles && leftDockContainer) {
+        btnToggleFiles.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (leftDockContainer.style.display === 'none') {
+                leftDockContainer.style.display = 'block';
+            } else {
+                leftDockContainer.style.display = 'none';
+            }
+        });
+    }
+
+    // Close all popovers if clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.tray-popover') && !e.target.closest('.tray-icon-btn')) {
+            document.querySelectorAll('.tray-popover.show').forEach(p => {
+                p.classList.remove('show');
+            });
+        }
+    });
