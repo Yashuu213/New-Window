@@ -1645,3 +1645,216 @@ input:checked + .mac-slider:before {
     color: rgba(255, 255, 255, 0.85);
     padding: 6px 10px;
 }
+
+/* ============================================ */
+/* APP DRAWER (START MENU)                      */
+/* ============================================ */
+.app-drawer-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(10, 10, 15, 0.85);
+    z-index: 1500;
+    display: none;
+    flex-direction: column;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.app-drawer-overlay.show {
+    display: flex;
+}
+
+.app-drawer-content {
+    flex: 1;
+    padding: 60px 10vw 0 10vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.app-drawer-header {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 30px;
+    color: white;
+    text-align: center;
+    text-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+}
+
+.app-drawer-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 30px;
+    overflow-y: auto;
+    padding-bottom: 50px;
+}
+.app-drawer-grid::-webkit-scrollbar { display: none; }
+
+.app-drawer-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: auto;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    font-weight: 500;
+}
+
+.user-profile .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #ff7eb3);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.power-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.power-btn:hover {
+    background: rgba(255, 60, 60, 0.8);
+    box-shadow: 0 0 15px rgba(255, 60, 60, 0.6);
+    transform: scale(1.05);
+}
+
+.power-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* POWER MENU POPOVER */
+.power-menu-popover {
+    position: absolute;
+    bottom: 75px;
+    right: 0;
+    background: rgba(25, 25, 30, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 2000;
+}
+
+.power-menu-popover.show {
+    display: flex;
+}
+
+.pm-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: background 0.15s ease;
+}
+
+.pm-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.pm-item svg {
+    width: 18px;
+    height: 18px;
+    opacity: 0.8;
+}
+/* ============================================ */
+/* DESKTOP FILE CONTEXT MENU                    */
+/* ============================================ */
+.file-context-menu {
+    position: fixed;
+    background: rgba(30, 30, 35, 0.92);
+    backdrop-filter: blur(25px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 180px;
+    z-index: 20000;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.15s ease;
+    display: none;
+}
+
+.file-context-menu.show {
+    display: block;
+}
+
+.file-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: rgba(255, 255, 255, 0.8);
+    transition: all 0.12s ease;
+}
+
+.file-ctx-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+.file-ctx-item.danger:hover {
+    background: rgba(255, 60, 60, 0.2);
+    color: #ff5555;
+}
+
+.file-ctx-item svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.file-ctx-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    margin: 4px 8px;
+}
+
+/* Rename input inline */
+.file-rename-input {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    outline: none;
+    width: 100%;
+    text-align: center;
+    font-family: 'Space Grotesk', sans-serif;
+}
+

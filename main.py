@@ -469,7 +469,7 @@ class CustomWebPage(QWebEnginePage):
         elif msg == "REFRESH_DESKTOP":
             print("Refreshing desktop...")
             self.main_window.scanner = ScannerThread()
-            self.main_window.scanner.scan_finished.connect(self.main_window.inject_data)
+            self.main_window.scanner.desktop_ready.connect(self.main_window.inject_desktop)
             self.main_window.scanner.start()
         elif msg.startswith("CREATE_FOLDER:"):
             folder_name = msg.replace("CREATE_FOLDER:", "")
@@ -483,10 +483,53 @@ class CustomWebPage(QWebEnginePage):
                 os.makedirs(new_dir, exist_ok=True)
                 # Rescan desktop files
                 self.main_window.scanner = ScannerThread()
-                self.main_window.scanner.scan_finished.connect(self.main_window.inject_data)
+                self.main_window.scanner.desktop_ready.connect(self.main_window.inject_desktop)
                 self.main_window.scanner.start()
             except Exception as e:
                 print(f"Failed to create folder: {e}")
+        elif msg.startswith("RENAME_FILE:"):
+            parts = msg.replace("RENAME_FILE:", "").split("|")
+            old_path = parts[0]
+            new_name = parts[1] if len(parts) > 1 else ""
+            if old_path and new_name:
+                try:
+                    new_path = os.path.join(os.path.dirname(old_path), new_name)
+                    os.rename(old_path, new_path)
+                    print(f"Renamed: {old_path} -> {new_path}")
+                    self.main_window.scanner = ScannerThread()
+                    self.main_window.scanner.desktop_ready.connect(self.main_window.inject_desktop)
+                    self.main_window.scanner.start()
+                except Exception as e:
+                    print(f"Failed to rename: {e}")
+        elif msg.startswith("DELETE_FILE:"):
+            file_path = msg.replace("DELETE_FILE:", "")
+            if file_path:
+                try:
+                    import shutil
+                    if os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                    else:
+                        os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                    self.main_window.scanner = ScannerThread()
+                    self.main_window.scanner.desktop_ready.connect(self.main_window.inject_desktop)
+                    self.main_window.scanner.start()
+                except Exception as e:
+                    print(f"Failed to delete: {e}")
+        elif msg.startswith("FILE_PROPERTIES:"):
+            file_path = msg.replace("FILE_PROPERTIES:", "")
+            if file_path and os.path.exists(file_path):
+                try:
+                    stat = os.stat(file_path)
+                    size_kb = stat.st_size / 1024
+                    from datetime import datetime
+                    modified = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M')
+                    created = datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M')
+                    is_dir = os.path.isdir(file_path)
+                    info = f"Name: {os.path.basename(file_path)}\\nType: {'Folder' if is_dir else 'File'}\\nSize: {size_kb:.1f} KB\\nPath: {file_path}\\nCreated: {created}\\nModified: {modified}"
+                    self.page.runJavaScript(f'alert("{info}")')
+                except Exception as e:
+                    print(f"Failed to get properties: {e}")
         else:
             print(f"JS: {msg}")
 
@@ -563,21 +606,31 @@ def get_hotspot_config():
         })
 
 class ScannerThread(QThread):
-    scan_finished = pyqtSignal(str, str, str, str, str)
+    wallpapers_ready = pyqtSignal(str)
+    desktop_ready = pyqtSignal(str)
+    apps_ready = pyqtSignal(str)
+    network_ready = pyqtSignal(str, str)
     
     def run(self):
         try:
             print("Scanning wallpapers...", flush=True)
             wallpapers = get_wallpapers_json()
-            print("Scanning apps... (This might take a few seconds)", flush=True)
-            apps = get_apps_json()
+            self.wallpapers_ready.emit(wallpapers)
+
             print("Scanning desktop files...", flush=True)
             desktop = get_desktop_files_json()
-            print("Scanning wifi networks...", flush=True)
+            self.desktop_ready.emit(desktop)
+
+            print("Scanning apps... (This might take a few seconds)", flush=True)
+            apps = get_apps_json()
+            self.apps_ready.emit(apps)
+
+            print("Scanning network...", flush=True)
             wifi = get_wifi_networks()
             hotspot = get_hotspot_config()
-            print("Scan complete! Sending to UI.", flush=True)
-            self.scan_finished.emit(apps, wallpapers, desktop, wifi, hotspot)
+            self.network_ready.emit(wifi, hotspot)
+            
+            print("Scan complete!", flush=True)
         except Exception as e:
             print(f"Error in scanner thread: {e}", flush=True)
 
@@ -653,16 +706,27 @@ class MainWindow(QMainWindow):
         if ok:
             print("UI Loaded. Starting background scanner thread...", flush=True)
             self.scanner = ScannerThread()
-            self.scanner.scan_finished.connect(self.inject_data)
+            self.scanner.wallpapers_ready.connect(self.inject_wallpapers)
+            self.scanner.desktop_ready.connect(self.inject_desktop)
+            self.scanner.apps_ready.connect(self.inject_apps)
+            self.scanner.network_ready.connect(self.inject_network)
             self.scanner.start()
             
             self.window_poller = WindowPoller()
             self.window_poller.windows_updated.connect(self.inject_windows)
             self.window_poller.start()
 
-    def inject_data(self, apps, wallpapers, desktop, wifi, hotspot):
-        print("Injecting data into JavaScript...", flush=True)
-        self.page.runJavaScript(f"window.renderApps({apps}); window.renderWallpapers({wallpapers}); window.renderDesktopFiles({desktop}); if(window.renderWifiNetworks) window.renderWifiNetworks({wifi}); if(window.renderHotspotConfig) window.renderHotspotConfig({hotspot});")
+    def inject_wallpapers(self, wallpapers):
+        self.page.runJavaScript(f"window.renderWallpapers({wallpapers});")
+
+    def inject_desktop(self, desktop):
+        self.page.runJavaScript(f"window.renderDesktopFiles({desktop});")
+
+    def inject_apps(self, apps):
+        self.page.runJavaScript(f"window.renderApps({apps});")
+
+    def inject_network(self, wifi, hotspot):
+        self.page.runJavaScript(f"if(window.renderWifiNetworks) window.renderWifiNetworks({wifi}); if(window.renderHotspotConfig) window.renderHotspotConfig({hotspot});")
 
     def inject_windows(self, json_str):
         self.open_hwnds = json.loads(json_str)
