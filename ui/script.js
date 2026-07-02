@@ -1,3 +1,134 @@
+let pinnedApps = JSON.parse(localStorage.getItem('pinnedApps')) || [];
+function savePinnedApps() {
+    localStorage.setItem('pinnedApps', JSON.stringify(pinnedApps));
+}
+
+function renderBottomDock() {
+    const bottomApps = document.getElementById('bottom-apps');
+    if (!bottomApps || !window.allApps) return;
+    bottomApps.innerHTML = '';
+    
+    const openWindows = window.currentOpenWindows || [];
+    const runningTargets = openWindows.map(w => w.path ? w.path.toLowerCase() : "");
+    const itemsToRender = [];
+    
+    const targetToApp = {};
+    window.allApps.forEach(app => {
+        if (app.target) {
+            targetToApp[app.target.toLowerCase()] = app;
+        }
+    });
+    
+    // Add pinned apps first
+    window.allApps.forEach(app => {
+        if (pinnedApps.includes(app.path)) {
+            const isRunning = app.target && runningTargets.includes(app.target.toLowerCase());
+            const hwnds = openWindows.filter(w => w.path && app.target && w.path.toLowerCase() === app.target.toLowerCase()).map(w => w.hwnd);
+            
+            itemsToRender.push({
+                type: 'pinned',
+                app: app,
+                isRunning: isRunning,
+                hwnds: hwnds
+            });
+        }
+    });
+    
+    // Add running apps that are not pinned
+    const pinnedTargets = itemsToRender.map(item => item.app.target ? item.app.target.toLowerCase() : "");
+    
+    openWindows.forEach(win => {
+        if (!win.path) return;
+        const winPathLower = win.path.toLowerCase();
+        if (pinnedTargets.includes(winPathLower)) return;
+        
+        let appObj = targetToApp[winPathLower];
+        if (!appObj) {
+            appObj = {
+                name: win.title.split(' - ').pop() || win.title,
+                path: win.path,
+                target: win.path,
+                icon: 'fallback'
+            };
+        }
+        
+        const alreadyAdded = itemsToRender.some(item => item.app.target && item.app.target.toLowerCase() === winPathLower);
+        if (alreadyAdded) {
+            const existing = itemsToRender.find(item => item.app.target && item.app.target.toLowerCase() === winPathLower);
+            if (existing) {
+                existing.hwnds.push(win.hwnd);
+            }
+        } else {
+            itemsToRender.push({
+                type: 'running',
+                app: appObj,
+                isRunning: true,
+                hwnds: [win.hwnd]
+            });
+        }
+    });
+    
+    // Render the final set
+    itemsToRender.forEach((item) => {
+        const app = item.app;
+        const bottomItem = document.createElement('div');
+        bottomItem.className = 'bottom-dock-item';
+        bottomItem.title = app.name;
+        bottomItem.style.position = 'relative';
+        
+        if (app.icon === "fallback" || !app.icon) {
+            bottomItem.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" style="width:28px; height:28px;"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M3 9h18M9 21V9"></path></svg>`;
+        } else {
+            const img = document.createElement('img');
+            img.src = app.icon;
+            img.style.width = '28px';
+            bottomItem.appendChild(img);
+        }
+        
+        if (item.isRunning) {
+            const pill = document.createElement('div');
+            pill.style.position = 'absolute';
+            pill.style.bottom = '2px';
+            pill.style.left = '50%';
+            pill.style.transform = 'translateX(-50%)';
+            pill.style.width = '6px';
+            pill.style.height = '6px';
+            pill.style.background = 'var(--accent)';
+            pill.style.borderRadius = '50%';
+            pill.style.boxShadow = '0 0 8px var(--accent)';
+            bottomItem.appendChild(pill);
+        }
+        
+        bottomItem.addEventListener('click', () => {
+            if (item.isRunning && item.hwnds.length > 0) {
+                console.log("FOCUS:" + item.hwnds[0]);
+            } else {
+                console.log("LAUNCH:" + app.path);
+            }
+        });
+        
+        bottomItem.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showAppContextMenu(e.clientX, e.clientY, app);
+        });
+        
+        bottomApps.appendChild(bottomItem);
+    });
+}
+
+let selectedApp = null;
+function showAppContextMenu(x, y, app) {
+    selectedApp = app;
+    const menu = document.getElementById('app-context-menu');
+    if (!menu) return;
+    const isPinned = pinnedApps.includes(app.path);
+    document.getElementById('pin-text').textContent = isPinned ? "Unpin from Taskbar" : "Pin to Taskbar";
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.classList.add('show');
+}
+
 // Global functions to be called by Python injection
 window.renderApps = function(apps) {
     // We are no longer populating the right mac-dock. 
@@ -41,34 +172,23 @@ window.renderApps = function(apps) {
             document.getElementById('app-drawer').classList.remove('show'); // close on launch
         });
         
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showAppContextMenu(e.clientX, e.clientY, app);
+        });
+        
         appDrawerGrid.appendChild(item);
     });
 
-    // Populate bottom dock with top 6 apps as pins
-    const bottomApps = document.getElementById('bottom-apps');
-    if (bottomApps) {
-        bottomApps.innerHTML = '';
-        for(let i=0; i<Math.min(6, apps.length); i++) {
-            const app = apps[i];
-            const bottomItem = document.createElement('div');
-            bottomItem.className = 'bottom-dock-item';
-            bottomItem.title = app.name;
-            
-            if (app.icon === "fallback" || !app.icon) {
-                bottomItem.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" style="width:28px; height:28px;"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M3 9h18M9 21V9"></path></svg>`;
-            } else {
-                const img2 = document.createElement('img');
-                img2.src = app.icon;
-                img2.style.width = '28px';
-                bottomItem.appendChild(img2);
-            }
-            
-            bottomItem.addEventListener('click', () => {
-                console.log("LAUNCH:" + app.path);
-            });
-            bottomApps.appendChild(bottomItem);
-        }
+    // Initialize pinned apps from localStorage on first-time load
+    const isInitialized = localStorage.getItem('pinnedAppsInitialized');
+    if (!isInitialized && apps.length > 0) {
+        pinnedApps = apps.slice(0, 4).map(a => a.path);
+        savePinnedApps();
+        localStorage.setItem('pinnedAppsInitialized', 'true');
     }
+    renderBottomDock();
 
     // Populate Right Mac-Style Dock
     const dynamicDock = document.getElementById('dynamic-dock');
@@ -134,6 +254,9 @@ window.renderApps = function(apps) {
     };
 
     window.renderOpenWindows = function(windows) {
+        window.currentOpenWindows = windows;
+        renderBottomDock();
+        
         const container = document.getElementById('open-windows-tabs');
         if (!container) return;
         
@@ -142,7 +265,7 @@ window.renderApps = function(apps) {
             const tab = document.createElement('div');
             tab.className = 'window-tab';
             tab.textContent = (index + 1).toString();
-            tab.title = win.title; // Show app name on hover
+            tab.title = win.title;
             
             tab.addEventListener('click', () => {
                 console.log("FOCUS:" + win.hwnd);
@@ -484,9 +607,10 @@ window.renderApps = function(apps) {
         });
     });
 
-    // --- VOLUME & BRIGHTNESS SLIDERS ---
-    const volSlider = document.querySelector('#pop-vol .horizontal-slider');
-    const brightSlider = document.querySelector('#pop-bright .horizontal-slider');
+    // --- VOLUME & BRIGHTNESS SLIDERS (Redesigned for macOS Control Center) ---
+    const volSlider = document.getElementById('cc-volume-slider');
+    const brightSlider = document.getElementById('cc-brightness-slider');
+    const overlay = document.getElementById('brightness-overlay');
     
     volSlider?.addEventListener('input', (e) => {
         const val = e.target.value;
@@ -496,4 +620,306 @@ window.renderApps = function(apps) {
     brightSlider?.addEventListener('input', (e) => {
         const val = e.target.value;
         console.log(`SET_BRIGHTNESS:${val}`);
+        if(overlay) {
+            overlay.style.opacity = ((100 - val) / 150.0).toString();
+        }
+    });
+
+    // Mirror individual tray sliders to Control Center sliders
+    const individualVolSlider = document.querySelector('#pop-vol .horizontal-slider');
+    const individualBrightSlider = document.querySelector('#pop-bright .horizontal-slider');
+    
+    individualVolSlider?.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if(volSlider) volSlider.value = val;
+        console.log(`SET_VOLUME:${val}`);
+    });
+
+    individualBrightSlider?.addEventListener('input', (e) => {
+        const val = e.target.value;
+        if(brightSlider) brightSlider.value = val;
+        console.log(`SET_BRIGHTNESS:${val}`);
+        if(overlay) {
+            overlay.style.opacity = ((100 - val) / 150.0).toString();
+        }
+    });
+
+    
+    // --- MAC-STYLE CONTROL CENTER INTERACTIVITY ---
+    // Wi-Fi toggle (Clicking icon toggles Wi-Fi state)
+    document.getElementById('cc-wifi-icon')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const icon = document.getElementById('cc-wifi-icon');
+        const isActive = icon.classList.toggle('active');
+        console.log(`TOGGLE_OPTION:Wi-Fi:${isActive}`);
+    });
+    
+    // Wi-Fi Details Trigger (Clicking text or arrow opens Wi-Fi connections popover)
+    document.getElementById('cc-wifi-toggle')?.addEventListener('click', (e) => {
+        if (e.target.closest('#cc-wifi-icon')) return; // Avoid triggering twice if icon clicked
+        e.stopPropagation();
+        
+        // Hide control center, open wifi connections popover
+        document.getElementById('pop-more')?.classList.remove('show');
+        document.getElementById('pop-wifi')?.classList.add('show');
+    });
+
+    // Bluetooth Toggle
+    document.getElementById('cc-bluetooth-toggle')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const icon = document.getElementById('cc-bluetooth-icon');
+        const status = document.getElementById('cc-bluetooth-status');
+        const isActive = icon.classList.toggle('active');
+        if (status) status.textContent = isActive ? "On" : "Off";
+        console.log(`TOGGLE_OPTION:Bluetooth:${isActive}`);
+    });
+
+    // Hotspot Toggle
+    document.getElementById('cc-hotspot-toggle')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const icon = document.getElementById('cc-hotspot-icon');
+        const status = document.getElementById('cc-hotspot-status');
+        const isActive = icon.classList.toggle('active');
+        if (status) status.textContent = isActive ? "On" : "Off";
+        console.log(`TOGGLE_HOTSPOT:${isActive}`);
+    });
+
+    // Focus Toggle
+    document.getElementById('cc-focus-toggle')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const card = document.getElementById('cc-focus-toggle');
+        card.classList.toggle('active');
+    });
+
+    // Airplane Toggle
+    document.getElementById('cc-airplane-toggle')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const card = document.getElementById('cc-airplane-toggle');
+        const isActive = card.classList.toggle('active');
+        const status = card.querySelector('.cc-sub');
+        if (status) status.textContent = isActive ? "On" : "Off";
+        console.log(`TOGGLE_OPTION:Airplane:${isActive}`);
+    });
+
+    // Music Player controls
+    const npPlay = document.getElementById('np-play');
+    npPlay?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isPlaying = npPlay.classList.toggle('playing');
+        const icon = document.getElementById('np-play-icon');
+        if (icon) {
+            icon.innerHTML = isPlaying ? '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path>' : '<polygon points="8 5 8 19 19 12 8 5"></polygon>';
+        }
+    });
+
+    
+    // --- MAC OS STYLE WI-FI SWITCH TOGGLE ---
+    document.getElementById('mac-wifi-toggle-checkbox')?.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        console.log(`TOGGLE_OPTION:Wi-Fi:${isChecked}`);
+        
+        const wifiIcon = document.getElementById('cc-wifi-icon');
+        if (wifiIcon) {
+            if (isChecked) wifiIcon.classList.add('active');
+            else wifiIcon.classList.remove('active');
+        }
+        // Instantly force a list refresh
+        console.log("REFRESH_DESKTOP");
+    });
+
+    document.getElementById('mac-wifi-settings-btn')?.addEventListener('click', () => {
+        console.log("OPEN_DISPLAY_SETTINGS"); // Redirects to settings
+    });
+
+    
+    window.renderHotspotConfig = function(config) {
+        const popContent = document.getElementById('mac-hotspot-config-content');
+        if (!popContent) return;
+        
+        const toggle = document.getElementById('mac-hotspot-toggle-checkbox');
+        if (toggle) {
+            toggle.checked = (config.status.toLowerCase() === 'on' || config.status === '1' || config.status === 'Running');
+        }
+        
+        popContent.innerHTML = `
+            <div class="mac-wifi-section-title">Hotspot Config</div>
+            <div class="mac-wifi-item active">
+                <div class="mac-wifi-icon-container">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px; height:14px;"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+                </div>
+                <div class="cc-text-group">
+                    <div class="cc-title">SSID / Name</div>
+                    <div class="cc-sub">${config.ssid || 'NexusHotspot'}</div>
+                </div>
+            </div>
+            <div class="mac-wifi-item">
+                <div class="mac-wifi-icon-container">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px; height:14px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                </div>
+                <div class="cc-text-group">
+                    <div class="cc-title">Password</div>
+                    <div class="cc-sub">${config.password || 'password123'}</div>
+                </div>
+            </div>
+            <div class="mac-wifi-item">
+                <div class="mac-wifi-icon-container">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px; height:14px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <div class="cc-text-group">
+                    <div class="cc-title">Connected Devices</div>
+                    <div class="cc-sub">${config.devices} device(s)</div>
+                </div>
+            </div>
+        `;
+        
+        const ccHotspotStatus = document.getElementById('cc-hotspot-status');
+        const ccHotspotIcon = document.getElementById('cc-hotspot-icon');
+        const isRunning = (config.status.toLowerCase() === 'on' || config.status === 'Running');
+        
+        if (ccHotspotStatus) {
+            ccHotspotStatus.textContent = isRunning ? 'On' : 'Off';
+        }
+        if (ccHotspotIcon) {
+            if (isRunning) ccHotspotIcon.classList.add('active');
+            else ccHotspotIcon.classList.remove('active');
+        }
+    };
+
+    window.renderWifiNetworks = function(networks) {
+        const listContainer = document.getElementById('mac-wifi-networks-list');
+        if (!listContainer) return;
+        
+        const isWifiOn = document.getElementById('mac-wifi-toggle-checkbox')?.checked;
+        if (!isWifiOn) {
+            listContainer.innerHTML = '<div style="text-align:center; padding:15px; color:rgba(255,255,255,0.3); font-size:0.8rem;">Wi-Fi is turned off</div>';
+            const ccWifiStatus = document.getElementById('cc-wifi-status');
+            if (ccWifiStatus) ccWifiStatus.textContent = "Off";
+            return;
+        }
+
+        listContainer.innerHTML = '';
+        const ccWifiStatus = document.getElementById('cc-wifi-status');
+        
+        if (networks.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center; padding:15px; color:rgba(255,255,255,0.4); font-size:0.8rem;">No networks found</div>';
+            if (ccWifiStatus) ccWifiStatus.textContent = "Disconnected";
+            return;
+        }
+        
+        const connectedNet = networks.find(n => n.status === 'Connected');
+        const otherNets = networks.filter(n => n.status !== 'Connected');
+
+        if (ccWifiStatus) {
+            ccWifiStatus.textContent = connectedNet ? connectedNet.ssid : "Available";
+        }
+
+        // Lock SVG helper
+        const lockSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:12px; height:12px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
+        
+        // Connected Network Section
+        if (connectedNet) {
+            const sectionTitle = document.createElement('div');
+            sectionTitle.className = 'mac-wifi-section-title';
+            sectionTitle.textContent = 'Known Network';
+            listContainer.appendChild(sectionTitle);
+
+            const item = document.createElement('div');
+            item.className = 'mac-wifi-item active';
+            item.innerHTML = `
+                <div class="mac-wifi-icon-container">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px; height:14px;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                </div>
+                <span class="mac-wifi-name">${connectedNet.ssid}</span>
+                <span class="mac-wifi-lock">${lockSVG}</span>
+            `;
+            item.addEventListener('click', () => {
+                if (confirm(`Disconnect from ${connectedNet.ssid}?`)) {
+                    console.log("DISCONNECT_WIFI:" + connectedNet.ssid);
+                }
+            });
+            listContainer.appendChild(item);
+        }
+
+        // Other Networks Section
+        if (otherNets.length > 0) {
+            const sectionTitle = document.createElement('div');
+            sectionTitle.className = 'mac-wifi-section-title';
+            sectionTitle.textContent = 'Other Networks';
+            listContainer.appendChild(sectionTitle);
+
+            otherNets.forEach(net => {
+                const item = document.createElement('div');
+                item.className = 'mac-wifi-item';
+                item.innerHTML = `
+                    <div class="mac-wifi-icon-container">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px; height:14px;"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                    </div>
+                    <span class="mac-wifi-name">${net.ssid}</span>
+                    <span class="mac-wifi-lock">${lockSVG}</span>
+                `;
+                item.addEventListener('click', () => {
+                    const password = prompt(`Enter password for ${net.ssid} (Leave empty for open networks):`);
+                    if (password !== null) {
+                        console.log(`CONNECT_WIFI:${net.ssid}|${password}`);
+                    }
+                });
+                listContainer.appendChild(item);
+            });
+        }
+    };
+
+    // --- TASK VIEW BUTTON ---
+    const taskViewBtn = document.getElementById('task-view-btn');
+    taskViewBtn?.addEventListener('click', () => {
+        console.log("TRIGGER_TASK_VIEW");
+    });
+
+    // --- WINDOWS CONTEXT MENU OPERATIONS ---
+    document.getElementById('cm-new')?.addEventListener('click', () => {
+        const name = prompt("Enter new folder name:", "New Folder");
+        if (name) {
+            console.log("CREATE_FOLDER:" + name);
+        }
+    });
+
+    document.getElementById('cm-settings')?.addEventListener('click', () => {
+        console.log("OPEN_DISPLAY_SETTINGS");
+    });
+
+    document.getElementById('cm-wallpaper')?.addEventListener('click', () => {
+        console.log("OPEN_PERSONALIZATION");
+    });
+
+    // Make refresh button refresh the desktop files list
+    document.getElementById('cm-refresh')?.addEventListener('click', () => {
+        console.log("REFRESH_DESKTOP");
+    });
+
+    // --- MOBILE HOTSPOT TOGGLE ---
+    document.getElementById('mac-hotspot-toggle-checkbox')?.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        console.log("TOGGLE_HOTSPOT:" + isChecked);
+        
+        // Force refresh scan state in UI
+        setTimeout(() => {
+            console.log("REFRESH_DESKTOP");
+        }, 1500);
+    });
+
+    // --- APP CONTEXT MENU OPERATIONS ---
+    document.getElementById('cm-pin-taskbar')?.addEventListener('click', () => {
+        if (!selectedApp) return;
+        const isPinned = pinnedApps.includes(selectedApp.path);
+        if (isPinned) {
+            pinnedApps = pinnedApps.filter(p => p !== selectedApp.path);
+        } else {
+            pinnedApps.push(selectedApp.path);
+        }
+        savePinnedApps();
+        renderBottomDock();
+        document.getElementById('app-context-menu')?.classList.remove('show');
+    });
+
+    document.addEventListener('click', () => {
+        document.getElementById('app-context-menu')?.classList.remove('show');
     });

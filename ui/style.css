@@ -95,9 +95,13 @@ body {
 /* RIGHT SIDEBAR DOCK (Free floating) */
 .mac-dock-container {
     position: fixed;
-    right: 20px;
-    top: 60%; /* Pushed down from center */
-    transform: translateY(-50%);
+    right: 15px;
+    top: 60px;
+    width: 70px;
+    height: calc(100vh - 140px);
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
     z-index: 100;
 }
 
@@ -105,13 +109,17 @@ body {
     display: flex;
     flex-direction: column;
     gap: 15px;
-    padding: 20px 0;
+    padding: 15px 0;
     align-items: center;
     width: 100%;
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
-    border-radius: 16px;
+    background: rgba(30, 30, 35, 0.45) !important;
+    backdrop-filter: blur(25px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* Hide scrollbar for dock */
@@ -588,19 +596,20 @@ body {
 /* INDIVIDUAL POPOVERS */
 .tray-popover {
     position: fixed;
-    top: 40px; /* Adjusted for thin top bar */
+    top: 45px;
     right: 135px; /* Shifted left to avoid right dock overlap */
-    background: #1c1c1c;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    border-radius: 12px;
-    padding: 15px;
-    z-index: 90;
+    background: rgba(30, 30, 30, 0.8) !important;
+    backdrop-filter: blur(30px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.4) !important;
+    z-index: 2000;
     
     opacity: 0;
-    transform: translateY(-10px);
+    transform: scale(0.96) translateY(-10px);
+    transform-origin: top right;
     pointer-events: none;
-    transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tray-popover.show {
@@ -677,146 +686,270 @@ body {
 .slider-popover svg { width: 20px; height: 20px; color: #fff; margin-top: 0; }
 
 /* MORE OPTIONS GRID */
+/* MORE OPTIONS GRID - REDESIGNED FOR MAC OS CONTROL CENTER */
 .control-center {
-    width: 360px;
-    padding: 24px;
-}
-
-.cc-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px 12px;
-}
-
-.cc-item {
+    width: 320px !important;
+    background: rgba(30, 30, 35, 0.8) !important;
+    backdrop-filter: blur(25px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 20px !important;
+    padding: 16px !important;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 6px;
+    gap: 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5) !important;
 }
 
-.cc-btn-group, .cc-btn-simple {
+.cc-top-row {
     display: flex;
+    gap: 12px;
     width: 100%;
-    height: 48px;
-    border-radius: 6px;
-    cursor: pointer;
+}
+
+.cc-box {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    transition: all 0.2s ease;
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
 }
 
-.cc-btn-group:hover, .cc-btn-simple:hover {
-    background: rgba(255, 255, 255, 0.1);
+.connection-box {
+    flex: 1.2;
+    gap: 12px;
 }
 
-.cc-btn-group.active, .cc-btn-simple.active {
-    background: #d4a5ff;
-    color: #000;
-}
-.cc-btn-group.active svg, .cc-btn-simple.active svg { color: #000; }
-
-.cc-btn-main {
+.quick-box {
     flex: 1;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+.cc-row {
     display: flex;
     align-items: center;
-    justify-content: center;
-    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    gap: 10px;
+    cursor: pointer;
+    width: 100%;
+    position: relative;
 }
 
-.cc-btn-arrow {
-    width: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-.cc-btn-arrow svg { width: 14px; height: 14px; }
-
-.cc-btn-simple {
-    justify-content: center;
-    align-items: center;
-}
-.cc-btn-simple svg { width: 20px; height: 20px; }
-
-.cc-btn-simple.disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-.cc-btn-simple.disabled:hover {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.cc-btn-main svg { width: 20px; height: 20px; }
-
-.cc-label {
-    font-size: 0.75rem;
-    font-weight: 500;
-    text-align: center;
-    color: #e2e2e2;
-}
-.cc-label.disabled-text { color: #888; }
-
-.cc-divider {
-    height: 1px;
+.cc-icon-circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
     background: rgba(255, 255, 255, 0.1);
-    margin: 5px 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.cc-icon-circle.active {
+    background: var(--accent);
+    color: black;
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.cc-text-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.cc-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+}
+
+.cc-sub {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cc-chevron {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.cc-chevron svg {
+    width: 12px;
+    height: 12px;
+}
+
+.cc-focus-card, .cc-airplane-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px;
+    border-radius: 10px;
+    transition: background 0.2s;
+    width: 100%;
+}
+
+.cc-focus-card:hover, .cc-airplane-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.cc-focus-card.active .cc-icon-circle, .cc-airplane-card.active .cc-icon-circle {
+    background: #a855f7;
+    color: white;
+}
+
+/* Sliders */
+.sliders-box {
+    gap: 12px;
+    padding: 12px 14px !important;
 }
 
 .cc-slider-row {
     display: flex;
-    align-items: center;
-    gap: 15px;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
 }
 
-.cc-slider-row svg { width: 20px; height: 20px; color: #fff; }
-.cc-slider-row .cc-arrow-right { width: 14px; height: 14px; cursor: pointer; }
+.cc-slider-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+}
+
+.cc-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    width: 100%;
+}
+
+.cc-slider-icon {
+    width: 16px;
+    height: 16px;
+    color: rgba(255, 255, 255, 0.6);
+}
 
 .cc-slider {
     flex: 1;
     -webkit-appearance: none;
     appearance: none;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 2px;
+    height: 20px; /* Thicker like macOS Big Sur */
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
     outline: none;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+/* macOS Fill effect on input range */
+.cc-slider::-webkit-slider-runnable-track {
+    height: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
 }
 
 .cc-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: #d4a5ff; /* Matches active color */
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
-    transition: transform 0.1s;
-}
-.cc-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
-
-.cc-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 5px;
-}
-
-.battery-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #e2e2e2;
-}
-.battery-info svg { width: 20px; height: 20px; }
-.battery-info span { font-size: 0.8rem; font-weight: 500; }
-
-.settings-icon {
-    width: 20px;
+    width: 0;
     height: 20px;
-    color: #e2e2e2;
-    cursor: pointer;
+    box-shadow: -200px 0 0 200px rgba(255, 255, 255, 0.85);
 }
-.settings-icon:hover { color: #fff; }
+
+.cc-slider::-moz-range-progress {
+    background-color: rgba(255, 255, 255, 0.85);
+    height: 20px;
+    border-radius: 10px;
+}
+
+/* Now Playing */
+.now-playing-box {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px !important;
+}
+
+.np-album-art {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.np-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.np-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.np-artist {
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.np-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.np-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+    opacity: 0.7;
+}
+
+.np-btn:hover {
+    opacity: 1;
+}
+
+.np-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.np-btn.playing {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    opacity: 1;
+}
 
 /* BOTTOM MID CLOCK & WEATHER WIDGET */
 .bottom-widget-container {
@@ -1363,4 +1496,152 @@ body {
     border-color: white;
     transform: scale(1.1);
     box-shadow: 0 0 15px currentColor;
+}
+
+/* macOS Wi-Fi Popover Styles */
+.mac-wifi-popover {
+    width: 290px !important;
+    background: rgba(30, 30, 30, 0.85) !important;
+    backdrop-filter: blur(25px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 16px !important;
+    padding: 12px !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+    color: white !important;
+}
+
+.mac-wifi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 6px 12px 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 8px;
+}
+
+/* Premium macOS Switch */
+.mac-switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+}
+
+.mac-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.mac-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: .25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-radius: 20px;
+}
+
+.mac-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .25s cubic-bezier(0.25, 0.8, 0.25, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+input:checked + .mac-slider {
+    background-color: #007aff;
+}
+
+input:checked + .mac-slider:before {
+    transform: translateX(16px);
+}
+
+.mac-wifi-section-title {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.4);
+    padding: 8px 6px 4px 6px;
+}
+
+.mac-wifi-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.15s ease;
+    gap: 10px;
+    user-select: none;
+}
+
+.mac-wifi-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.mac-wifi-item.active {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.mac-wifi-icon-container {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.mac-wifi-item.active .mac-wifi-icon-container {
+    background: #007aff;
+    color: white;
+    box-shadow: 0 0 8px rgba(0, 122, 255, 0.5);
+}
+
+.mac-wifi-name {
+    flex: 1;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mac-wifi-status-text {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.mac-wifi-lock {
+    display: flex;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.mac-wifi-lock svg {
+    width: 12px;
+    height: 12px;
+}
+
+.mac-wifi-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 8px 0;
+}
+
+.mac-wifi-footer-item {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    padding: 6px 10px;
 }

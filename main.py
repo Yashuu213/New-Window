@@ -1,3 +1,7 @@
+import subprocess
+import re
+import win32api
+import win32process
 import sys
 import os
 import json
@@ -94,7 +98,85 @@ def get_icon_base64_robust(shortcut):
         
     return None
 
+UWP_LOCATIONS = {}
+WIFI_ENABLED = True
+
+def init_uwp_locations():
+    global UWP_LOCATIONS
+    try:
+        import subprocess
+        cmd = "Get-AppxPackage | Select-Object PackageFamilyName, InstallLocation | ConvertTo-Json"
+        out = subprocess.run(["powershell", "-Command", cmd], capture_output=True, text=True, errors='ignore').stdout.strip()
+        if out:
+            data = json.loads(out)
+            if isinstance(data, list):
+                for item in data:
+                    fam = item.get("PackageFamilyName")
+                    loc = item.get("InstallLocation")
+                    if fam and loc:
+                        UWP_LOCATIONS[fam.lower()] = loc
+            elif isinstance(data, dict):
+                fam = data.get("PackageFamilyName")
+                loc = data.get("InstallLocation")
+                if fam and loc:
+                    UWP_LOCATIONS[fam.lower()] = loc
+    except Exception as e:
+        print(f"Error initializing UWP location list: {e}")
+
+def find_uwp_logo_icon(parsing_path):
+    if "!" not in parsing_path:
+        return None
+    family_name = parsing_path.split("!")[0].lower()
+    folder_path = UWP_LOCATIONS.get(family_name)
+    if not folder_path or not os.path.exists(folder_path):
+        return None
+    try:
+        manifest_path = os.path.join(folder_path, "AppxManifest.xml")
+        if os.path.exists(manifest_path):
+            with open(manifest_path, 'r', encoding='utf-8', errors='ignore') as f:
+                xml_content = f.read()
+            
+            logo_rel = None
+            for attr in ["Square44x44Logo", "Square30x30Logo", "Square71x71Logo", "Square150x150Logo", "Logo"]:
+                matches = re.findall(f'{attr}="([^"]+)"', xml_content)
+                if matches:
+                    logo_rel = matches[0]
+                    break
+                    
+            if logo_rel:
+                logo_name = os.path.basename(logo_rel)
+                logo_dir_rel = os.path.dirname(logo_rel)
+                logo_dir = os.path.join(folder_path, logo_dir_rel)
+                
+                if os.path.exists(logo_dir):
+                    logo_base = logo_name.replace(".png", "")
+                    candidates = []
+                    for file in os.listdir(logo_dir):
+                        if file.startswith(logo_base) and file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            candidates.append(os.path.join(logo_dir, file))
+                    
+                    def get_resolution_score(file_path):
+                        fname = os.path.basename(file_path).lower()
+                        matches = re.findall(r'(?:targetsize-|scale-)(\d+)', fname)
+                        if matches:
+                            return int(matches[0])
+                        return 0
+                        
+                    candidates = sorted(candidates, key=get_resolution_score, reverse=True)
+                    if candidates:
+                        img = Image.open(candidates[0])
+                        img = img.convert('RGBA')
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="PNG")
+                        return f"data:image/png;base64,{base64.b64encode(buffered.getvalue()).decode()}"
+    except Exception as e:
+        pass
+    return None
+
 def get_apps_json():
+    if not UWP_LOCATIONS:
+        init_uwp_locations()
+
     shell = win32com.client.Dispatch("WScript.Shell")
     paths = [
         r"C:\ProgramData\Microsoft\Windows\Start Menu\Programs",
@@ -102,6 +184,16 @@ def get_apps_json():
     ]
     apps = []
     seen_names = set()
+    
+    # Junk filter keywords for both classic and UWP apps
+    junk_keywords = [
+        "manual", "docs", "document", "readme", "uninstall", "help", "license", 
+        "release notes", "website", "wiki", "support", "faq", "how to", "howto", 
+        "add a new", "setup", "install", "feedback", "web site", "reference", 
+        "configuration tool", "virtual network adapter", "diagnostic"
+    ]
+    
+    # 1. Classic App Lnk scan
     for path in paths:
         if not os.path.exists(path): continue
         for root, dirs, files in os.walk(path):
@@ -110,17 +202,58 @@ def get_apps_json():
                     full_path = os.path.join(root, file)
                     try:
                         shortcut = shell.CreateShortCut(full_path)
+                        target = shortcut.TargetPath
                         name = file.replace('.lnk', '')
+                        name_lower = name.lower()
+                        target_lower = target.lower() if target else ""
+                        
+                        # Filter by extensions
+                        if any(target_lower.endswith(ext) for ext in [".txt", ".html", ".chm", ".pdf", ".url"]) or target_lower.startswith("http"):
+                            continue
+                            
+                        # Filter by junk words in name or target
+                        if any(x in name_lower or x in target_lower for x in junk_keywords):
+                            continue
+                            
                         if name in seen_names:
                             continue
-                        seen_names.add(name)
                         
                         extracted = get_icon_base64_robust(shortcut)
                         if extracted:
-                            apps.append({'name': name, 'path': full_path, 'icon': extracted})
-                    except Exception as e:
-                        print(f"Error processing shortcut {file}: {e}")
+                            seen_names.add(name)
+                            apps.append({'name': name, 'path': full_path, 'target': target, 'icon': extracted})
+                    except Exception:
                         pass
+                        
+    # 2. UWP App scan via shell:AppsFolder
+    try:
+        sh_app = win32com.client.Dispatch("Shell.Application")
+        apps_folder = sh_app.NameSpace("shell:AppsFolder")
+        if apps_folder:
+            for item in apps_folder.Items():
+                name = item.Name
+                path = item.Path
+                if "!" in path:  # It's a UWP app
+                    name_lower = name.lower()
+                    if name in seen_names:
+                        continue
+                        
+                    if any(x in name_lower for x in junk_keywords):
+                        continue
+                        
+                    icon_b64 = find_uwp_logo_icon(path)
+                    if icon_b64:
+                        seen_names.add(name)
+                        launch_path = "shell:AppsFolder\\" + path
+                        apps.append({
+                            'name': name,
+                            'path': launch_path,
+                            'target': launch_path,
+                            'icon': icon_b64
+                        })
+    except Exception as e:
+        print(f"Error scanning UWP apps: {e}")
+        
     apps = sorted(apps, key=lambda x: x['name'])
     return json.dumps(apps)
 
@@ -173,7 +306,15 @@ def get_open_windows():
             class_name = win32gui.GetClassName(hwnd)
             if class_name not in ["Progman", "Windows.UI.Core.CoreWindow", "ApplicationFrameWindow", "Shell_TrayWnd"] and "Nexus OS Desktop" not in title:
                 if win32gui.GetWindow(hwnd, win32con.GW_OWNER) == 0:
-                    windows.append({'hwnd': hwnd, 'title': title})
+                    exe_path = None
+                    try:
+                        _, pid = win32process.GetWindowThreadProcessId(hwnd)
+                        handle = win32api.OpenProcess(win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ, False, pid)
+                        exe_path = win32process.GetModuleFileNameEx(handle, 0)
+                        win32api.CloseHandle(handle)
+                    except Exception:
+                        pass
+                    windows.append({'hwnd': hwnd, 'title': title, 'path': exe_path})
         return True
     windows = []
     win32gui.EnumWindows(callback, windows)
@@ -208,13 +349,13 @@ class CustomWebPage(QWebEnginePage):
             try:
                 val = int(msg.split(":")[1])
                 print(f"Volume request: {val}%")
-                from ctypes import cast, POINTER
-                from comtypes import CLSCTX_ALL
-                from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+                import pythoncom
+                pythoncom.CoInitialize()
+                from pycaw.pycaw import AudioUtilities
                 devices = AudioUtilities.GetSpeakers()
-                interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-                volume = cast(interface, POINTER(IAudioEndpointVolume))
+                volume = devices.EndpointVolume
                 volume.SetMasterVolumeLevelScalar(val / 100.0, None)
+                pythoncom.CoUninitialize()
             except Exception as e:
                 print(f"Failed to set volume: {e}")
         elif msg.startswith("SET_BRIGHTNESS:"):
@@ -231,12 +372,198 @@ class CustomWebPage(QWebEnginePage):
         elif msg.startswith("SET_ACCENT:"):
             print(f"Accent Color changed: {msg}")
         elif msg.startswith("TOGGLE_OPTION:"):
+            global WIFI_ENABLED
             print(f"Toggle Option updated: {msg}")
+            label = msg.split(":")[1]
+            status = msg.split(":")[2] == "true"
+            if label == "Wi-Fi" or label == "Wifi":
+                WIFI_ENABLED = status
+                if not status:
+                    subprocess.run(["netsh", "wlan", "disconnect"], capture_output=True)
+        elif msg.startswith("CONNECT_WIFI:"):
+            parts = msg.replace("CONNECT_WIFI:", "").split("|")
+            ssid = parts[0]
+            password = parts[1] if len(parts) > 1 else ""
+            print(f"Connecting to Wi-Fi SSID: {ssid} (Has password: {bool(password)})")
+            if password:
+                xml_content = f'''<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>{ssid}</name>
+    <SSIDConfig>
+        <SSID>
+            <name>{ssid}</name>
+        </SSID>
+    </SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>auto</connectionMode>
+    <MSM>
+        <security>
+            <authEncryption>
+                <authentication>WPA2PSK</authentication>
+                <encryption>AES</encryption>
+                <useOneX>false</useOneX>
+            </authEncryption>
+            <sharedKey>
+                <keyType>passPhrase</keyType>
+                <protected>false</protected>
+                <keyMaterial>{password}</keyMaterial>
+            </sharedKey>
+        </security>
+    </MSM>
+</WLANProfile>'''
+            else:
+                xml_content = f'''<?xml version="1.0"?>
+<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
+    <name>{ssid}</name>
+    <SSIDConfig>
+        <SSID>
+            <name>{ssid}</name>
+        </SSID>
+    </SSIDConfig>
+    <connectionType>ESS</connectionType>
+    <connectionMode>auto</connectionMode>
+    <MSM>
+        <security>
+            <authEncryption>
+                <authentication>open</authentication>
+                <encryption>none</encryption>
+                <useOneX>false</useOneX>
+            </authEncryption>
+        </security>
+    </MSM>
+</WLANProfile>'''
+            temp_xml = os.path.join(os.environ.get('TEMP', 'C:\\Windows\\Temp'), "temp_wifi_profile.xml")
+            try:
+                with open(temp_xml, 'w', encoding='utf-8') as f_xml:
+                    f_xml.write(xml_content)
+                subprocess.run(["netsh", "wlan", "add", "profile", f"filename={temp_xml}"], capture_output=True)
+                os.remove(temp_xml)
+            except Exception as e_xml:
+                print("Error writing profile:", e_xml)
+            subprocess.run(["netsh", "wlan", "connect", f"name={ssid}"], capture_output=True)
+        elif msg.startswith("DISCONNECT_WIFI:"):
+            print("Disconnecting from Wi-Fi...")
+            subprocess.run(["netsh", "wlan", "disconnect"], capture_output=True)
+        elif msg.startswith("TOGGLE_HOTSPOT:"):
+            status = msg.split(":")[1] == "true"
+            print(f"Toggling mobile hotspot: {status}")
+            ps_code = f'''
+            $connectionProfile = [Windows.Networking.Connectivity.NetworkInformation, Windows.Networking.Connectivity, ContentType=WindowsRuntime]::GetInternetConnectionProfile()
+            $tetheringManager = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager, Windows.Networking.NetworkOperators, ContentType=WindowsRuntime]::CreateFromConnectionProfile($connectionProfile)
+            if ("{str(status).lower()}" -eq "true") {{
+                $tetheringManager.StartTetheringAsync()
+            }} else {{
+                $tetheringManager.StopTetheringAsync()
+            }}
+            '''
+            subprocess.run(["powershell", "-Command", ps_code], capture_output=True)
+        elif msg == "TRIGGER_TASK_VIEW":
+            print("Opening Windows Task View...")
+            keyboard.send("windows+tab")
+        elif msg == "OPEN_DISPLAY_SETTINGS":
+            print("Opening Windows Display Settings...")
+            os.system("start ms-settings:display")
+        elif msg == "OPEN_PERSONALIZATION":
+            print("Opening Windows Personalization Settings...")
+            os.system("start ms-settings:personalization")
+        elif msg == "REFRESH_DESKTOP":
+            print("Refreshing desktop...")
+            self.main_window.scanner = ScannerThread()
+            self.main_window.scanner.scan_finished.connect(self.main_window.inject_data)
+            self.main_window.scanner.start()
+        elif msg.startswith("CREATE_FOLDER:"):
+            folder_name = msg.replace("CREATE_FOLDER:", "")
+            print(f"Creating new desktop folder: {folder_name}")
+            try:
+                # Find desktop folder path
+                import win32com.client
+                shell = win32com.client.Dispatch("WScript.Shell")
+                desktop_path = shell.SpecialFolders("Desktop")
+                new_dir = os.path.join(desktop_path, folder_name)
+                os.makedirs(new_dir, exist_ok=True)
+                # Rescan desktop files
+                self.main_window.scanner = ScannerThread()
+                self.main_window.scanner.scan_finished.connect(self.main_window.inject_data)
+                self.main_window.scanner.start()
+            except Exception as e:
+                print(f"Failed to create folder: {e}")
         else:
             print(f"JS: {msg}")
 
+def get_connected_wifi():
+    try:
+        import subprocess
+        out = subprocess.run(["netsh", "wlan", "show", "interfaces"], capture_output=True, text=True, errors='ignore').stdout
+        for line in out.split('\n'):
+            if "SSID" in line and "BSSID" not in line:
+                return line.split(":")[1].strip()
+    except Exception:
+        pass
+    return None
+
+def get_wifi_networks():
+    try:
+        import subprocess
+        connected = get_connected_wifi()
+        out = subprocess.run(["netsh", "wlan", "show", "networks"], capture_output=True, text=True, errors='ignore').stdout
+        networks = []
+        seen = set()
+        if connected:
+            networks.append({'ssid': connected, 'status': 'Connected'})
+            seen.add(connected)
+        for line in out.split('\n'):
+            if "SSID" in line and ":" in line:
+                ssid = line.split(":")[1].strip()
+                if ssid and ssid not in seen:
+                    networks.append({'ssid': ssid, 'status': 'Available'})
+                    seen.add(ssid)
+        return json.dumps(networks)
+    except Exception:
+        return json.dumps([
+            {'ssid': 'Nexus_5G', 'status': 'Connected'},
+            {'ssid': 'Guest_Net', 'status': 'Available'},
+            {'ssid': 'Home_Router', 'status': 'Available'}
+        ])
+
+def get_hotspot_config():
+    try:
+        import subprocess
+        ps_code = """
+        $connectionProfile = [Windows.Networking.Connectivity.NetworkInformation, Windows.Networking.Connectivity, ContentType=WindowsRuntime]::GetInternetConnectionProfile()
+        $tetheringManager = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager, Windows.Networking.NetworkOperators, ContentType=WindowsRuntime]::CreateFromConnectionProfile($connectionProfile)
+        $accessPoint = $tetheringManager.GetCurrentAccessPointConfiguration()
+        Write-Output "SSID:$($accessPoint.Ssid)"
+        Write-Output "Password:$($accessPoint.Passphrase)"
+        Write-Output "Devices:$($tetheringManager.ClientCount)"
+        Write-Output "Status:$($tetheringManager.TetheringOperationalState)"
+        """
+        out = subprocess.run(["powershell", "-Command", ps_code], capture_output=True, text=True, errors='ignore').stdout
+        ssid, password, devices, status = "", "", "0", "Off"
+        for line in out.split('\n'):
+            if line.startswith("SSID:"):
+                ssid = line.split(":", 1)[1].strip()
+            elif line.startswith("Password:"):
+                password = line.split(":", 1)[1].strip()
+            elif line.startswith("Devices:"):
+                devices = line.split(":", 1)[1].strip()
+            elif line.startswith("Status:"):
+                status = line.split(":", 1)[1].strip()
+        return json.dumps({
+            'ssid': ssid,
+            'password': password,
+            'devices': devices,
+            'status': status
+        })
+    except Exception:
+        return json.dumps({
+            'ssid': 'NexusHotspot',
+            'password': 'password123',
+            'devices': '0',
+            'status': 'Off'
+        })
+
 class ScannerThread(QThread):
-    scan_finished = pyqtSignal(str, str, str)
+    scan_finished = pyqtSignal(str, str, str, str, str)
     
     def run(self):
         try:
@@ -246,8 +573,11 @@ class ScannerThread(QThread):
             apps = get_apps_json()
             print("Scanning desktop files...", flush=True)
             desktop = get_desktop_files_json()
+            print("Scanning wifi networks...", flush=True)
+            wifi = get_wifi_networks()
+            hotspot = get_hotspot_config()
             print("Scan complete! Sending to UI.", flush=True)
-            self.scan_finished.emit(apps, wallpapers, desktop)
+            self.scan_finished.emit(apps, wallpapers, desktop, wifi, hotspot)
         except Exception as e:
             print(f"Error in scanner thread: {e}", flush=True)
 
@@ -274,13 +604,16 @@ class MainWindow(QMainWindow):
         
         self.browser = QWebEngineView()
         self.page = CustomWebPage(self.browser)
+        self.page.main_window = self
         self.browser.setPage(self.page)
         
         self.browser.loadFinished.connect(self.on_load_finished)
         self.spotlight_signal.connect(self.toggle_spotlight_safe)
         
         ui_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui', 'index.html')
-        self.browser.setUrl(QUrl.fromLocalFile(ui_path))
+        url = QUrl.fromLocalFile(ui_path)
+        url.setQuery(f"v={time.time()}")
+        self.browser.setUrl(url)
         self.setCentralWidget(self.browser)
         
         self.open_hwnds = []
@@ -327,15 +660,25 @@ class MainWindow(QMainWindow):
             self.window_poller.windows_updated.connect(self.inject_windows)
             self.window_poller.start()
 
-    def inject_data(self, apps, wallpapers, desktop):
+    def inject_data(self, apps, wallpapers, desktop, wifi, hotspot):
         print("Injecting data into JavaScript...", flush=True)
-        self.page.runJavaScript(f"window.renderApps({apps}); window.renderWallpapers({wallpapers}); window.renderDesktopFiles({desktop});")
+        self.page.runJavaScript(f"window.renderApps({apps}); window.renderWallpapers({wallpapers}); window.renderDesktopFiles({desktop}); if(window.renderWifiNetworks) window.renderWifiNetworks({wifi}); if(window.renderHotspotConfig) window.renderHotspotConfig({hotspot});")
 
     def inject_windows(self, json_str):
         self.open_hwnds = json.loads(json_str)
         self.page.runJavaScript(f"if (window.renderOpenWindows) window.renderOpenWindows({json_str});")
 
 if __name__ == '__main__':
+        # Auto-install pycaw/comtypes for volume support
+    try:
+        import pycaw
+        import comtypes
+    except ImportError:
+        import subprocess
+        import sys
+        print("Installing pycaw and comtypes...")
+        subprocess.run([sys.executable, "-m", "pip", "install", "pycaw", "comtypes"], capture_output=True)
+        
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
