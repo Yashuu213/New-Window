@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Topbar</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 5px 20px;
+            overflow: hidden;
+            background: transparent;
+            /* To make it look like a taskbar */
+            background: rgba(10, 10, 15, 0.4);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+        }
+        
+        .topbar {
+            width: 100%;
+            margin-bottom: 0;
+            height: 40px;
+        }
+
+        .sidebar-brand {
+            margin-bottom: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 0 16px;
+        }
+        .topbar-tabs {
+            border-radius: 20px;
+            padding: 5px 20px;
+        }
+        .topbar-clock {
+            padding: 5px 20px;
+            border-radius: 20px;
+        }
+        .topbar-right {
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <header class="topbar">
+        <div class="sidebar-brand">
+            <svg viewBox="0 0 24 24" fill="var(--accent)"><path d="M12 2L2 22h20L12 2z"/></svg>
+            <span>AURORA OS</span>
+        </div>
+
+        <div class="topbar-tabs">
+            <span class="active">Work</span>
+            <span>Study</span>
+            <span>Code</span>
+            <span>Design</span>
+            <span>Edit</span>
+            <span>Tools</span>
+        </div>
+        
+        <div class="topbar-clock glass-panel">
+            <span id="top-date"></span>
+            <span id="top-time"></span>
+        </div>
+        
+        <div class="topbar-right">
+            <div class="sys-stats">
+                <div class="stat"><small>CPU</small><br><span id="tb-cpu">--%</span></div>
+                <div class="stat"><small>RAM</small><br><span id="tb-ram">--%</span></div>
+                <div class="stat"><small>SSD</small><br><span id="tb-ssd">--%</span></div>
+            </div>
+            <div class="sys-icons">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                <span class="net-name">Airtel_5G</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="7" width="20" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line></svg>
+                <span>82%</span>
+                <div class="profile-pic">
+                    <img src="https://ui-avatars.com/api/?name=Yash&background=2563eb&color=fff" alt="User">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <script>
+        function updateTime() {
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+            let hours = now.getHours();
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12;
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            const timeStr = `${hours}:${minutes} ${ampm}`;
+            
+            document.getElementById('top-date').textContent = dateStr;
+            document.getElementById('top-time').textContent = timeStr;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        window.updateStats = function(cpu, ram, ssd) {
+            document.getElementById('tb-cpu').innerText = cpu + "%";
+            document.getElementById('tb-ram').innerText = ram + "%";
+            document.getElementById('tb-ssd').innerText = ssd + "%";
+        };
+    </script>
+</body>
+</html>

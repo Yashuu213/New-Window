@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus OS Spotlight</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+        
+        :root {
+            --glass-bg: rgba(25, 25, 30, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #6366f1;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background: transparent;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 20px;
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.1);
+        }
+
+        .spotlight-container {
+            width: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .spotlight-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 25px;
+        }
+
+        .spotlight-input-wrapper svg {
+            width: 28px;
+            height: 28px;
+            color: var(--text-secondary);
+        }
+
+        .spotlight-input-wrapper input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.6rem;
+            outline: none;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 300;
+        }
+
+        .spotlight-input-wrapper input::placeholder {
+            color: rgba(255,255,255,0.3);
+        }
+
+        .spotlight-results {
+            max-height: 380px;
+            overflow-y: auto;
+            display: none;
+            border-top: 1px solid var(--glass-border);
+            padding: 10px;
+        }
+
+        .spotlight-results::-webkit-scrollbar {
+            width: 6px;
+        }
+        .spotlight-results::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+        }
+
+        .s-result-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            color: white;
+            transition: 0.15s ease-in-out;
+        }
+        
+        .s-result-item:hover, .s-result-item.selected {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .s-result-icon {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .s-result-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .s-result-title {
+            font-weight: 500;
+            font-size: 1.1rem;
+        }
+
+        .s-result-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-panel spotlight-container">
+        <div class="spotlight-input-wrapper">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="spotlight-input" placeholder="Search apps, files..." autocomplete="off" spellcheck="false">
+        </div>
+        <div id="spotlight-results" class="spotlight-results"></div>
+    </div>
+    
+    <script src="spotlight.js"></script>
+</body>
+</html>
