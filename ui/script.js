@@ -44,6 +44,23 @@ function renderBottomDock() {
         
         let appObj = targetToApp[winPathLower];
         if (!appObj) {
+            // Robust fuzzy match by executable name
+            const exeName = winPathLower.split('\\').pop().replace('.exe', '');
+            if (exeName && window.allApps) {
+                appObj = window.allApps.find(a => {
+                    const nameLower = a.name.toLowerCase();
+                    const targetLower = a.target ? a.target.toLowerCase() : '';
+                    if (targetLower.includes(exeName)) return true;
+                    if (nameLower.includes(exeName)) return true;
+                    if (nameLower === exeName) return true;
+                    // For things like WhatsAppDesktop
+                    if (targetLower.includes(exeName.replace(' ', ''))) return true;
+                    return false;
+                });
+            }
+        }
+        
+        if (!appObj) {
             appObj = {
                 name: win.title.split(' - ').pop() || win.title,
                 path: win.path,
